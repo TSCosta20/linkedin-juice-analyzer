@@ -10,24 +10,23 @@ const processedPosts = new Map<string, TrackedPost>();
 
 /**
  * Scores all currently visible posts that haven't been processed yet.
- * Already-cached posts still attempt re-injection (handles DOM re-renders).
+ * Already-cached posts still attempt re-injection (handles DOM re-renders after scroll).
  */
 function processVisiblePosts(): void {
   const posts = parseVisiblePosts();
 
-  for (const { container, textContent } of posts) {
+  for (const { container, textContent, textElement } of posts) {
     const hash = hashText(textContent);
 
     if (processedPosts.has(hash)) {
-      // Re-inject in case the post DOM was re-rendered after scroll
       const cached = processedPosts.get(hash)!;
-      injectScoreCard(container, cached.score, hash);
+      injectScoreCard(container, cached.score, hash, textElement);
       continue;
     }
 
     const score = analyzePost(textContent);
     processedPosts.set(hash, { hash, score });
-    injectScoreCard(container, score, hash);
+    injectScoreCard(container, score, hash, textElement);
   }
 }
 
@@ -36,7 +35,6 @@ function init(): void {
   startObserving(processVisiblePosts);
 }
 
-// Run after DOM is available
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {

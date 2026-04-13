@@ -9,7 +9,7 @@ const STYLES = `
   flex-wrap: wrap;
   gap: 5px 10px;
   padding: 6px 14px 6px 16px;
-  margin: 2px 0;
+  margin: 6px 0 2px;
   border-top: 1px solid rgba(0,0,0,0.07);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 11.5px;
@@ -96,12 +96,9 @@ function levelClass(score: number, metric: MetricKind): string {
     if (score >= 30) return 'lja-juice-mid';
     return 'lja-juice-low';
   }
-  const low = `lja-${metric}-low`;
-  const mid = `lja-${metric}-mid`;
-  const high = `lja-${metric}-high`;
-  if (score >= 60) return high;
-  if (score >= 30) return mid;
-  return low;
+  if (score >= 60) return `lja-${metric}-high`;
+  if (score >= 30) return `lja-${metric}-mid`;
+  return `lja-${metric}-low`;
 }
 
 function buildCard(score: PostScore, hash: string): HTMLElement {
@@ -130,36 +127,33 @@ function buildCard(score: PostScore, hash: string): HTMLElement {
   return card;
 }
 
-/**
- * Finds the best DOM injection point within a post container.
- * Inserts the card just before the social action bar, or falls back to the container.
- */
-function findInjectionPoint(container: HTMLElement): HTMLElement {
-  return (
-    container.querySelector<HTMLElement>('.feed-shared-social-action-bar') ??
-    container.querySelector<HTMLElement>('.social-actions') ??
-    container.querySelector<HTMLElement>('.feed-shared-footer') ??
-    container
-  );
-}
-
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Injects the score card into a post container.
+ * Injects the score card into a post, positioned right after the post text.
  * Returns false if the card is already present (idempotent by hash).
  */
 export function injectScoreCard(
   container: HTMLElement,
   score: PostScore,
-  hash: string
+  hash: string,
+  textElement?: HTMLElement
 ): boolean {
   injectStyles();
 
   if (container.querySelector(`[data-lja-hash="${hash}"]`)) return false;
 
-  const injectionPoint = findInjectionPoint(container);
   const card = buildCard(score, hash);
-  injectionPoint.insertAdjacentElement('beforebegin', card);
+
+  // Best injection point: right after the paragraph containing the text box.
+  // Falls back to appending to the container.
+  const textParagraph = textElement?.closest('p') ?? textElement?.parentElement ?? null;
+
+  if (textParagraph) {
+    textParagraph.insertAdjacentElement('afterend', card);
+  } else {
+    container.appendChild(card);
+  }
+
   return true;
 }
