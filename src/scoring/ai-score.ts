@@ -63,6 +63,33 @@ const CLICHE_PATTERNS = [
   /\bimpactful\b/gi,
 ];
 
+// Consultant / polished-AI writing patterns — distinct from "LinkedIn bro" style
+const CONSULTANT_AI_PATTERNS = [
+  // Formal parallel tricolon: "whether X, how Y, and what Z"
+  /\bwhether\b.{5,60}\bhow\b.{5,60}\band what\b/gi,
+  // "This aligns with / underscores / highlights / reflects"
+  /\bthis (aligns with|underscores|highlights|reflects|reinforces|demonstrates)\b/gi,
+  // Consultant CTAs
+  /\bif you (want|need) to understand\b/gi,
+  /\bour team can help\b/gi,
+  /\blet'?s (chat|connect|talk|discuss)\b/gi,
+  /\breach out (to learn|if you|to discuss)\b/gi,
+  /\bbook (a call|time|a meeting)\b/gi,
+  // Consultant-speak phrases
+  /\bgrounded in (real |the )?(data|research|evidence)\b/gi,
+  /\bwhere to play\b/gi,
+  /\bplay to win\b/gi,
+  /\bbreak down the opportunity\b/gi,
+  /\bbuild a strategy\b/gi,
+  /\bkey (questions?|takeaways?|considerations?|insights?) (for|include|are)\b/gi,
+  /\bshare common traits\b/gi,
+  /\bthis (matters|is why it matters)\b/gi,
+  /\bhere'?s what (the data|this means|we('re| are) seeing)\b/gi,
+  // Structured "X. Y. Z." formal tricolon conclusions
+  /\bprioritiz(e|ing)\b.{0,40}\bconsolidat(e|ing)\b/gi,
+  /\bconsolidat(e|ing)\b.{0,40}\bintegrat(e|ing)\b/gi,
+];
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
@@ -115,6 +142,10 @@ export function scoreAI(text: string): number {
   // Cliché patterns (0–20 pts)
   const cliches = countMatches(text, CLICHE_PATTERNS);
   score += Math.min(cliches * 4, 20);
+
+  // Consultant / polished-AI patterns (0–35 pts)
+  const consultantSignals = countMatches(text, CONSULTANT_AI_PATTERNS);
+  score += Math.min(consultantSignals * 9, 35);
 
   // Sentence symmetry (0–15 pts)
   score += Math.round(symmetryScore(text) * 15);
