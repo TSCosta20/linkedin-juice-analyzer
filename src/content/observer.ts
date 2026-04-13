@@ -1,65 +1,65 @@
 /**
  * MutationObserver for LinkedIn's infinite scroll.
  *
- * Only fires the callback when added nodes actually contain new post content
- * (elements with role="listitem" or data-testid="expandable-text-box").
- * This prevents thrashing on the constant micro-mutations LinkedIn produces
- * (reaction counts, typing indicators, ad updates, etc.)
+ * Observes [data-testid="mainFeed"] — already a tight scope, so no
+ * content filtering is needed. The debounce + hash dedup in index.ts
+ * ensures processVisiblePosts() is cheap to call multiple times.
+ *
+ * Falls back to document.body if mainFeed isn't in the DOM yet,
+ * and re-anchors to mainFeed once it appears.
  */
 
 type ProcessCallback = () => void;
 
 let observer: MutationObserver | null = null;
+let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** Returns true if a node or any of its descendants looks like a new post */
-function containsPostContent(node: Node): boolean {
-  if (node.nodeType !== Node.ELEMENT_NODE) return false;
-  const el = node as Element;
-  return (
-    el.matches('[role="listitem"]') ||
-    el.matches('[data-testid="expandable-text-box"]') ||
-    el.querySelector('[role="listitem"]') !== null ||
-    el.querySelector('[data-testid="expandable-text-box"]') !== null
-  );
+function scheduleProcess(onNewContent: ProcessCallback): void {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    onNewContent();
+    debounceTimer = null;
+  }, 800);
 }
 
 /**
- * Starts watching for new posts.
- * Observes the feed container if available, otherwise the body.
- * Safe to call multiple times — only one observer is ever active.
- *
- * @param onNewContent - Called (debounced 800ms) only when new post nodes appear.
+ * Starts (or re-anchors) the observer on the feed root.
+ * Safe to call multiple times — disconnects the previous observer first.
  */
+function observeRoot(root: Element, onNewContent: ProcessCallback): void {
+  observer?.disconnect();
+  observer = new MutationObserver(() => scheduleProcess(onNewContent));
+  observer.observe(root, { childList: true, subtree: true });
+}
+
 export function startObserving(onNewContent: ProcessCallback): void {
-  if (observer) return;
+  const feedRoot = document.querySelector('[data-testid="mainFeed"]');
 
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  if (feedRoot) {
+    // Feed already rendered — observe it directly
+    observeRoot(feedRoot, onNewContent);
+    return;
+  }
 
-  observer = new MutationObserver((mutations) => {
-    // Only proceed if at least one added node looks like post content
-    const hasNewPosts = mutations.some((m) =>
-      Array.from(m.addedNodes).some(containsPostContent)
-    );
-    if (!hasNewPosts) return;
-
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      onNewContent();
-      debounceTimer = null;
-    }, 800);
+  // Feed not rendered yet (SPA navigation). Watch body briefly just to
+  // detect when mainFeed appears, then switch to observing it directly.
+  const bootstrapObserver = new MutationObserver(() => {
+    const root = document.querySelector('[data-testid="mainFeed"]');
+    if (!root) return;
+    bootstrapObserver.disconnect();
+    observeRoot(root, onNewContent);
+    // Process posts that loaded during the wait
+    onNewContent();
   });
 
-  // Prefer observing just the feed container — much tighter scope than body
-  const feedRoot =
-    document.querySelector('[data-testid="mainFeed"]') ?? document.body;
-
-  observer.observe(feedRoot, {
-    childList: true,
-    subtree: true,
-  });
+  bootstrapObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 export function stopObserving(): void {
   observer?.disconnect();
   observer = null;
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
 }
