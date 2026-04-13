@@ -368,11 +368,14 @@ export function injectScoreCard(
 ): boolean {
   injectStyles();
 
-  // Global dedup: if a card with this hash exists anywhere in the document,
-  // don't inject another (handles same promoted post in multiple containers).
-  // If the card was removed by a DOM re-render it won't be found here, so
-  // re-injection after scroll still works correctly.
+  // Global dedup: if a card with this exact hash exists anywhere, skip.
   if (document.querySelector(`[data-lja-hash="${hash}"]`)) return false;
+
+  // If the container already has a card with a DIFFERENT hash (e.g. the user
+  // clicked "see more" and the text expanded → new hash), remove the stale card
+  // so we don't end up with two cards in the same post.
+  const staleCard = container.querySelector<HTMLElement>('.lja-card');
+  if (staleCard) staleCard.remove();
 
   const displayScore = llmScore ?? score;
   const card = buildCard(displayScore, hash, !!llmScore);
