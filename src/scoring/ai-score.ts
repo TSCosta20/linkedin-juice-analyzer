@@ -44,6 +44,10 @@ const ENGAGEMENT_BAIT = [
   /save this (post|for later)/gi,
   /repost (if|to)/gi,
   /👇+/g,
+  // Closing question to audience — very common AI ghostwriter sign-off
+  /\bhave you (ever |also )?(experienced|seen|tried|faced|dealt with)\b/gi,
+  /\bI'?d love to (hear|know|see)\b/gi,
+  /\bshare (your|a) (thoughts?|experience|story|take)\b/gi,
 ];
 
 const CLICHE_PATTERNS = [
@@ -90,6 +94,38 @@ const CONSULTANT_AI_PATTERNS = [
   /\bconsolidat(e|ing)\b.{0,40}\bintegrat(e|ing)\b/gi,
 ];
 
+// LinkedIn ghostwriter / spotlight template patterns
+// These cover the "feature post" and "person profile" AI template style
+const GHOSTWRITER_PATTERNS = [
+  // Spotlight / feature headline templates
+  /\b(monday|tuesday|wednesday|thursday|friday|week(ly)?|founder|mentor|partner|employee|team|member)\s+(spotlight|feature|of the (day|week|month))\b/gi,
+  // "at the intersection of X, Y, and Z"
+  /\bat the intersection of\b/gi,
+  // "is a great example of (that|this)"
+  /\bis a great example of\b/gi,
+  // "This is exactly why"
+  /\bthis is exactly why\b/gi,
+  // Narrative section headers: "What she/he/they sees:", "Her/His approach:", "What X does:"
+  /\bwhat (she|he|they|we|I|it) (sees?|does?|thinks?|believes?|recommends?)\b/gi,
+  /\b(her|his|their|our|my|the) approach is (different|simple|clear|straightforward)\b/gi,
+  // "really stands out" / "one thing that stands out"
+  /\b(really |one (idea|thing|quote) (from \w+ that )?)stands out\b/gi,
+  // "lucky to (work with|have|partner with)"
+  /\blucky to (work with|have|partner with|welcome)\b/gi,
+  // "started the way many/most great ones do"
+  /\bstarted the way (many|most)\b/gi,
+  // Closing audience engagement question (common AI ghostwriter outro)
+  /what'?s (one|your|the biggest) .{5,60}\?$/gim,
+  // Arrow-list formatting (→ used as bullets — strong AI signal)
+  /^→/gm,
+  // "operate at the intersection" / "sit at the intersection"
+  /\b(operate|sit|live|work)\s+at the intersection\b/gi,
+  // "her journey into X started" / "his story began"
+  /\b(her|his|their) journey into\b/gi,
+  // Tricolon with parallel arrows or dashes as list intro
+  /\b(here'?s what (we('re| are)|she|he|they) see(ing|s)?|here'?s how (she|he|they))\b/gi,
+];
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
@@ -111,13 +147,14 @@ function symmetryScore(text: string): number {
 }
 
 /**
- * Detects numbered/bulleted list structure — a common AI formatting pattern.
+ * Detects numbered/bulleted/arrow list structure — a common AI formatting pattern.
  * Returns a score 0–1.
  */
 function listStructureScore(text: string): number {
   const numberedItems = (text.match(/^\s*\d+[\.\)]/gm) || []).length;
-  const bulletItems = (text.match(/^\s*[•\-\*]/gm) || []).length;
-  return Math.min((numberedItems + bulletItems) / 5, 1);
+  const bulletItems   = (text.match(/^\s*[•\-\*]/gm) || []).length;
+  const arrowItems    = (text.match(/^\s*→/gm) || []).length;  // → bullets = strong AI signal
+  return Math.min((numberedItems + bulletItems + arrowItems) / 5, 1);
 }
 
 // ─── Main scorer ─────────────────────────────────────────────────────────────
@@ -146,6 +183,10 @@ export function scoreAI(text: string): number {
   // Consultant / polished-AI patterns (0–35 pts)
   const consultantSignals = countMatches(text, CONSULTANT_AI_PATTERNS);
   score += Math.min(consultantSignals * 9, 35);
+
+  // LinkedIn ghostwriter / spotlight template patterns (0–40 pts)
+  const ghostwriterSignals = countMatches(text, GHOSTWRITER_PATTERNS);
+  score += Math.min(ghostwriterSignals * 7, 40);
 
   // Sentence symmetry (0–15 pts)
   score += Math.round(symmetryScore(text) * 15);
