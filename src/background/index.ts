@@ -1,6 +1,20 @@
 import type { PostScore } from '../types';
-import { getSettings } from '../options/settings';
-import type { LLMSettings } from '../options/settings';
+
+// Inline settings helpers — keeps background.js self-contained (no chunk imports)
+type Provider = 'openai' | 'anthropic' | 'deepseek';
+interface LLMSettings { provider: Provider; apiKey: string; }
+
+function getSettings(): Promise<LLMSettings | null> {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(['lja_provider', 'lja_apiKey'], (result) => {
+      if (!result.lja_apiKey) {
+        resolve(null);
+      } else {
+        resolve({ provider: (result.lja_provider as Provider) || 'openai', apiKey: result.lja_apiKey as string });
+      }
+    });
+  });
+}
 
 // ─── Prompt ──────────────────────────────────────────────────────────────────
 
