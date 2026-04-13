@@ -78,6 +78,20 @@ const STYLES = `
   cursor: pointer;
 }
 
+.lja-llm-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: #ede9fe;
+  color: #5b21b6;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
 .lja-tooltip {
   position: fixed;
   z-index: 99999;
@@ -280,7 +294,7 @@ function levelClass(score: number, metric: MetricKind): string {
   return `lja-${metric}-low`;
 }
 
-function buildCard(score: PostScore, hash: string): HTMLElement {
+function buildCard(score: PostScore, hash: string, isLLM = false): HTMLElement {
   const card = document.createElement('div');
   card.className = 'lja-card';
   card.dataset.ljaHash = hash;
@@ -301,6 +315,7 @@ function buildCard(score: PostScore, hash: string): HTMLElement {
       <span class="lja-score ${levelClass(score.juice, 'juice')}" data-lja-metric="juice" data-lja-score="${score.juice}" title="Click for details">${score.juice}</span>
     </span>
     <span class="lja-summary">${score.summary}</span>
+    ${isLLM ? '<span class="lja-llm-badge" title="Scored by AI model">LLM</span>' : ''}
   `.trim();
 
   return card;
@@ -311,18 +326,21 @@ function buildCard(score: PostScore, hash: string): HTMLElement {
 /**
  * Injects the score card into a post, positioned right after the post text.
  * Returns false if the card is already present (idempotent by hash).
+ * Pass llmScore to render LLM scores directly (e.g. on re-injection after scroll).
  */
 export function injectScoreCard(
   container: HTMLElement,
   score: PostScore,
   hash: string,
-  textElement?: HTMLElement
+  textElement?: HTMLElement,
+  llmScore?: PostScore
 ): boolean {
   injectStyles();
 
   if (container.querySelector(`[data-lja-hash="${hash}"]`)) return false;
 
-  const card = buildCard(score, hash);
+  const displayScore = llmScore ?? score;
+  const card = buildCard(displayScore, hash, !!llmScore);
 
   // Best injection point: right after the paragraph containing the text box.
   // Falls back to appending to the container.
@@ -335,4 +353,41 @@ export function injectScoreCard(
   }
 
   return true;
+}
+
+/**
+ * Updates an already-injected card with LLM scores in place.
+ * Finds the card by hash across the entire document.
+ */
+export function updateCardWithLLM(hash: string, llmScore: PostScore): void {
+  const card = document.querySelector<HTMLElement>(`[data-lja-hash="${hash}"]`);
+  if (!card) return;
+
+  // Update each score badge
+  const badges: Array<{ metric: MetricKind; value: number }> = [
+    { metric: 'ai',    value: llmScore.ai },
+    { metric: 'bs',    value: llmScore.bullshit },
+    { metric: 'juice', value: llmScore.juice },
+  ];
+
+  for (const { metric, value } of badges) {
+    const badge = card.querySelector<HTMLElement>(`[data-lja-metric="${metric}"]`);
+    if (!badge) continue;
+    badge.textContent = String(value);
+    badge.className = `lja-score ${levelClass(value, metric)}`;
+    badge.dataset.ljaScore = String(value);
+  }
+
+  // Update summary
+  const summary = card.querySelector('.lja-summary');
+  if (summary) summary.textContent = llmScore.summary;
+
+  // Add LLM badge if not already there
+  if (!card.querySelector('.lja-llm-badge')) {
+    const badge = document.createElement('span');
+    badge.className = 'lja-llm-badge';
+    badge.textContent = 'LLM';
+    badge.title = 'Scored by AI model';
+    card.appendChild(badge);
+  }
 }

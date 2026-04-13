@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
+// Content script build — IIFE so Chrome loads it as a classic script
 export default defineConfig({
   build: {
     outDir: 'dist',

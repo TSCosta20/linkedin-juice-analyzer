@@ -13,4 +13,5 @@ export interface PostScore {
 export interface TrackedPost {
   hash: string;
   score: PostScore;
+  llmScore?: PostScore; // upgraded score from LLM, if available
 }
