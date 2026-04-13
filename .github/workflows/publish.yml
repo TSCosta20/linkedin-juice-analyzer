@@ -1,0 +1,74 @@
+name: Build, Test & Publish to Chrome Web Store
+
+on:
+  push:
+    branches: [master]
+    tags:
+      - 'v*'           # also trigger on version tags like v1.0.1
+  pull_request:
+    branches: [master] # run tests on PRs but don't publish
+
+jobs:
+  # ─── Always run: test + build ───────────────────────────────────────────────
+  build:
+    name: Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Generate icons
+        run: node scripts/generate-icons.js
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Zip dist for upload
+        run: |
+          cd dist
+          zip -r ../extension.zip .
+          cd ..
+          echo "Archive size: $(du -sh extension.zip | cut -f1)"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-zip
+          path: extension.zip
+          retention-days: 7
+
+  # ─── Only publish on push to master (not on PRs) ────────────────────────────
+  publish:
+    name: Publish to Chrome Web Store
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-zip
+
+      - name: Upload & publish to Chrome Web Store
+        uses: mnao305/chrome-extension-upload@v5.0.0
+        with:
+          file-path: extension.zip
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          # publish: true  → submits for review automatically
+          # set to false if you want to review in the dashboard first
+          publish: true
