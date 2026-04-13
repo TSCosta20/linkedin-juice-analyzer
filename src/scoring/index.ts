@@ -1,6 +1,6 @@
-import { scoreAI } from './ai-score';
-import { scoreBullshit } from './bullshit-score';
-import { scoreJuice } from './juice-score';
+import { explainAI, scoreAI } from './ai-score';
+import { explainBullshit, scoreBullshit } from './bullshit-score';
+import { explainJuice, scoreJuice } from './juice-score';
 import { buildSummary } from './summary';
 import type { PostScore } from '../types';
 
@@ -13,5 +13,13 @@ export function analyzePost(text: string): PostScore {
   const bullshit = scoreBullshit(text);
   const juice = scoreJuice(text);
   const summary = buildSummary(ai, bullshit, juice);
-  return { ai, bullshit, juice, summary };
+  return {
+    ai,
+    bullshit,
+    juice,
+    summary,
+    aiReasons: explainAI(text),
+    bsReasons: explainBullshit(text),
+    juiceBreakdown: explainJuice(text),
+  };
 }

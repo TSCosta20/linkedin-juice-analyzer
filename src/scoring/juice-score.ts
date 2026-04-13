@@ -1,6 +1,7 @@
 import {
   countMatches,
   countNumbers,
+  findExamples,
   getSentences,
   tokenize,
   uniqueBigrams,
@@ -124,4 +125,76 @@ export function scoreJuice(text: string): number {
   score -= verbosityPenalty(text, numbers + evidence + technicalTokens);
 
   return Math.max(0, Math.min(Math.round(score), 100));
+}
+
+// ─── Explainer ────────────────────────────────────────────────────────────────
+
+const TECHNICAL_TOKEN_RE =
+  /\b(https?:\/\/\S+|v\d+\.\d+[\w.]*|\d+ms|\d+s\b|\d+%|\d+x\b|\$[\d,]+|[A-Z]{2,}[a-z]*\d+|[A-Z]{3,}\b)\b/g;
+
+export function explainJuice(text: string): string[] {
+  if (!text.trim()) return [];
+  const lines: string[] = [];
+
+  const words = wordCount(text);
+  const numbers = countNumbers(text);
+  const evidence = countMatches(text, EVIDENCE_MARKERS);
+  const techTokens = (text.match(TECHNICAL_TOKEN_RE) || []).length;
+  const namedEntities = (text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g) || []).length;
+  const sentences = getSentences(text).filter((s) => wordCount(s) > 4);
+  const fillerCount = countMatches(text, FILLER_PHRASES);
+
+  const pts1 = Math.min(numbers * 5, 25);
+  const pts2 = Math.min(evidence * 5, 25);
+  const pts3 = Math.min(techTokens * 4, 20);
+  const pts4 = Math.min(namedEntities * 2, 10);
+  const pts5 = Math.min(sentences.length * 2, 10);
+  const pen1 = Math.min(fillerCount * 5, 20);
+  const pen2 = repetitionPenalty(text);
+  const pen3 = verbosityPenalty(text, numbers + evidence + techTokens);
+
+  lines.push(`${words} words analyzed`);
+
+  if (numbers > 0) {
+    const numExamples = (text.match(/\$[\d,]+|\d[\d,\.]*%|\d+x\b|\d+ms\b|\d[\d,\.]+/g) || []).slice(0, 6);
+    lines.push(`Numbers: ${numbers} (+${pts1} pts) — ${numExamples.join(', ')}`);
+  } else {
+    lines.push('Numbers: none found (+0 pts)');
+  }
+
+  if (evidence > 0) {
+    const evidenceExamples = findExamples(text, EVIDENCE_MARKERS, 5);
+    lines.push(`Evidence markers: ${evidence} (+${pts2} pts) — "${evidenceExamples.join('", "')}"`);
+  } else {
+    lines.push('Evidence markers: none (+0 pts)');
+  }
+
+  if (techTokens > 0) {
+    const techExamples = (text.match(TECHNICAL_TOKEN_RE) || []).slice(0, 5);
+    lines.push(`Technical tokens: ${techTokens} (+${pts3} pts) — ${techExamples.join(', ')}`);
+  } else {
+    lines.push('Technical tokens: none (+0 pts)');
+  }
+
+  if (namedEntities > 0) {
+    const entityExamples = (text.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g) || []).slice(0, 4);
+    lines.push(`Named entities: ${namedEntities} (+${pts4} pts) — ${entityExamples.join(', ')}`);
+  } else {
+    lines.push('Named entities: none (+0 pts)');
+  }
+
+  lines.push(`Sentences: ${sentences.length} (+${pts5} pts)`);
+
+  const totalPenalty = pen1 + pen2 + pen3;
+  if (totalPenalty > 0) {
+    const penParts: string[] = [];
+    if (pen1 > 0) penParts.push(`filler −${pen1}`);
+    if (pen2 > 0) penParts.push(`repetition −${pen2}`);
+    if (pen3 > 0) penParts.push(`verbosity −${pen3}`);
+    lines.push(`Penalties: ${penParts.join(', ')}`);
+  } else {
+    lines.push('Penalties: none');
+  }
+
+  return lines;
 }

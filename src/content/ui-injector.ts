@@ -74,6 +74,20 @@ const STYLES = `
   margin-top: 0;
 }
 
+.lja-rate-msg {
+  width: 100%;
+  font-size: 10.5px;
+  color: #92400e;
+  margin-top: 0;
+}
+
+.lja-rate-msg a {
+  color: #b45309;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 600;
+}
+
 .lja-score {
   cursor: pointer;
 }
@@ -99,6 +113,11 @@ const STYLES = `
   color: #5b21b6;
 }
 
+.lja-mode-limit {
+  background: #fff3e0;
+  color: #b45309;
+}
+
 .lja-mode-loading {
   background: #f1f5f9;
   color: #94a3b8;
@@ -122,7 +141,9 @@ const STYLES = `
 .lja-tooltip {
   position: fixed;
   z-index: 99999;
-  max-width: 260px;
+  max-width: 340px;
+  max-height: 420px;
+  overflow-y: auto;
   background: #1a1a1a;
   color: #f0f0f0;
   border-radius: 8px;
@@ -151,9 +172,72 @@ const STYLES = `
   color: #bbb;
   font-size: 11.5px;
 }
+
+.lja-tooltip-reasons {
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lja-tooltip-reason {
+  font-size: 11px;
+  color: #d0d0d0;
+  line-height: 1.4;
+}
+
+.lja-tooltip-reason::before {
+  content: '→ ';
+  color: #666;
+}
+
+.lja-brand {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.55;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.lja-brand:hover {
+  opacity: 1;
+}
+
+.lja-brand-label {
+  font-size: 8.5px;
+  font-weight: 400;
+  color: #aaa;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.lja-brand-badge {
+  display: inline-block;
+  background: #0d3d4f;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1.5;
+}
 `;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 let stylesInjected = false;
 
@@ -233,12 +317,28 @@ function showTooltip(anchor: HTMLElement, metric: MetricKind, score: number): vo
   const levelLabel = getLevelLabel(score, metric);
   const levelText = info.levels[levelIdx];
 
+  // Parse stored reasons from the badge data attribute
+  let reasonsHTML = '';
+  try {
+    const raw = anchor.dataset.ljaReasons;
+    if (raw) {
+      const reasons: string[] = JSON.parse(raw);
+      if (reasons.length > 0) {
+        const items = reasons
+          .map((r) => `<div class="lja-tooltip-reason">${escapeHtml(r)}</div>`)
+          .join('');
+        reasonsHTML = `<div class="lja-tooltip-reasons">${items}</div>`;
+      }
+    }
+  } catch { /* ignore parse errors */ }
+
   const tip = document.createElement('div');
   tip.className = 'lja-tooltip';
   tip.innerHTML = `
     <div class="lja-tooltip-title">${info.title}</div>
     <div class="lja-tooltip-level">${levelLabel}</div>
     <div class="lja-tooltip-body">${levelText}</div>
+    ${reasonsHTML}
   `.trim();
 
   document.body.appendChild(tip);
@@ -246,7 +346,7 @@ function showTooltip(anchor: HTMLElement, metric: MetricKind, score: number): vo
 
   // Position below the anchor, clamped to viewport
   const rect = anchor.getBoundingClientRect();
-  const tipWidth = 260;
+  const tipWidth = 340;
   let left = rect.left;
   let top = rect.bottom + 6;
 
@@ -346,8 +446,26 @@ function buildCard(score: PostScore, hash: string, isLLM = false): HTMLElement {
       <span class="lja-score ${levelClass(score.juice, 'juice')}" data-lja-metric="juice" data-lja-score="${score.juice}" title="Click for details">${score.juice}</span>
     </span>
     ${modeLabel}
+    <a class="lja-brand" href="https://waldyn.eu" target="_blank" rel="noopener noreferrer" title="Powered by Waldyn">
+      <span class="lja-brand-label">by</span>
+      <span class="lja-brand-badge">Waldyn</span>
+    </a>
     <span class="lja-summary">${score.summary}</span>
   `.trim();
+
+  // Attach explanation data to each badge so tooltips can display it
+  if (score.aiReasons) {
+    const aiBadge = card.querySelector<HTMLElement>('[data-lja-metric="ai"]');
+    if (aiBadge) aiBadge.dataset.ljaReasons = JSON.stringify(score.aiReasons);
+  }
+  if (score.bsReasons) {
+    const bsBadge = card.querySelector<HTMLElement>('[data-lja-metric="bs"]');
+    if (bsBadge) bsBadge.dataset.ljaReasons = JSON.stringify(score.bsReasons);
+  }
+  if (score.juiceBreakdown) {
+    const juiceBadge = card.querySelector<HTMLElement>('[data-lja-metric="juice"]');
+    if (juiceBadge) juiceBadge.dataset.ljaReasons = JSON.stringify(score.juiceBreakdown);
+  }
 
   return card;
 }
@@ -450,5 +568,41 @@ export function updateCardWithLLM(hash: string, llmScore: PostScore): void {
     modeBadge.textContent = 'LLM';
     modeBadge.className = 'lja-mode lja-mode-llm';
     modeBadge.title = 'Scored by AI model';
+  }
+}
+
+/**
+ * Shows the rate-limit prompt on a card.
+ * Replaces the summary line with a message directing the user to add their own key.
+ */
+export function setCardRateLimited(hash: string): void {
+  const card = document.querySelector<HTMLElement>(`[data-lja-hash="${hash}"]`);
+  if (!card) return;
+
+  // Update mode badge
+  const modeBadge = card.querySelector<HTMLElement>('.lja-mode');
+  if (modeBadge) {
+    modeBadge.className = 'lja-mode lja-mode-limit';
+    modeBadge.textContent = 'LIMIT';
+    modeBadge.title = 'Daily free AI limit reached';
+  }
+
+  // Replace summary with the prompt message
+  const summary = card.querySelector('.lja-summary');
+  if (summary) {
+    summary.remove();
+    const msg = document.createElement('span');
+    msg.className = 'lja-rate-msg';
+    msg.innerHTML =
+      'Daily free AI limit reached. ' +
+      '<a class="lja-add-key">Add your own API key</a> for unlimited scoring, ' +
+      'or keep using local rules.';
+    card.appendChild(msg);
+
+    // Open options page when user clicks the link
+    msg.querySelector('.lja-add-key')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      chrome.runtime.sendMessage({ type: 'LJA_OPEN_OPTIONS' });
+    });
   }
 }

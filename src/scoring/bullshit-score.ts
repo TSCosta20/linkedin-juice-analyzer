@@ -1,4 +1,4 @@
-import { countMatches, countNumbers, tokenize, wordCount } from '../utils/text-utils';
+import { countMatches, countNumbers, findExamples, tokenize, wordCount } from '../utils/text-utils';
 
 // ─── Signal pattern lists ────────────────────────────────────────────────────
 
@@ -116,4 +116,48 @@ export function scoreBullshit(text: string): number {
   score += Math.min(Math.round(inflationRatio * 60), 10);
 
   return Math.min(Math.round(score), 100);
+}
+
+// ─── Explainer ────────────────────────────────────────────────────────────────
+
+export function explainBullshit(text: string): string[] {
+  if (!text.trim()) return [];
+  const reasons: string[] = [];
+
+  const words = wordCount(text);
+
+  const buzzCount = countMatches(text, BUZZWORDS);
+  if (buzzCount > 0) {
+    const examples = findExamples(text, BUZZWORDS, 8);
+    const density = buzzCount / words;
+    const pts = Math.min(Math.round(density * 300), 35);
+    reasons.push(`Buzzwords (+${pts}, ${buzzCount} hit${buzzCount > 1 ? 's' : ''}): "${examples.join('", "')}"`);
+  }
+
+  const intensifierCount = countMatches(text, VAGUE_INTENSIFIERS);
+  if (intensifierCount > 0) {
+    const examples = findExamples(text, VAGUE_INTENSIFIERS, 6);
+    const pts = Math.min(intensifierCount * 4, 20);
+    reasons.push(`Vague intensifiers (+${pts}, ${intensifierCount} hit${intensifierCount > 1 ? 's' : ''}): "${examples.join('", "')}"`);
+  }
+
+  const paddingCount = countMatches(text, INSPIRATIONAL_PADDING);
+  if (paddingCount > 0) {
+    const examples = findExamples(text, INSPIRATIONAL_PADDING, 5);
+    const pts = Math.min(paddingCount * 7, 20);
+    reasons.push(`Inspirational padding (+${pts}, ${paddingCount} hit${paddingCount > 1 ? 's' : ''}): "${examples.join('", "')}"`);
+  }
+
+  const numbers = countNumbers(text);
+  if (words > 40 && numbers === 0) {
+    reasons.push('No numbers in long post (+15): lacks any concrete figures');
+  } else if (words > 40 && numbers <= 1) {
+    reasons.push('Almost no numbers (+7): very few concrete figures');
+  }
+
+  if (reasons.length === 0) {
+    reasons.push('Clean language — concrete, specific, low buzzword density.');
+  }
+
+  return reasons;
 }

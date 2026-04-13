@@ -7,6 +7,10 @@ export interface PostScore {
   bullshit: number; // 0–100: density of fluff/buzzwords
   juice: number;    // 0–100: informational payload relative to length
   summary: string;  // deterministic one-line sentence from phrase bands
+  // Optional explanation fields — present for locally-scored posts, absent for LLM scores
+  aiReasons?: string[];
+  bsReasons?: string[];
+  juiceBreakdown?: string[];
 }
 
 /** A processed post tracked in the dedup cache */

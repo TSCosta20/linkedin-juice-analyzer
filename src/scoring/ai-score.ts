@@ -1,4 +1,4 @@
-import { countMatches, getSentences, tokenize, wordCount } from '../utils/text-utils';
+import { countMatches, findExamples, getSentences, tokenize, wordCount } from '../utils/text-utils';
 
 // ─── Signal pattern lists ────────────────────────────────────────────────────
 
@@ -321,4 +321,103 @@ export function scoreAI(text: string): number {
   }
 
   return Math.min(Math.round(score), 100);
+}
+
+// ─── Explainer ────────────────────────────────────────────────────────────────
+
+/**
+ * Returns human-readable signal descriptions for why a post scored as it did.
+ * Each string is one bullet point shown in the tooltip.
+ */
+export function explainAI(text: string): string[] {
+  if (!text.trim()) return [];
+  const reasons: string[] = [];
+
+  const hookCount = countMatches(text, HOOK_PHRASES);
+  if (hookCount > 0) {
+    const examples = findExamples(text, HOOK_PHRASES, 5);
+    const pts = Math.min(hookCount * 10, 20);
+    reasons.push(`Hook phrases (+${pts}, ${hookCount} hit${hookCount > 1 ? 's' : ''}): "${examples.join('", "')}"`);
+  }
+
+  const transCount = countMatches(text, TRANSITION_PHRASES);
+  if (transCount > 0) {
+    const examples = findExamples(text, TRANSITION_PHRASES, 6);
+    const pts = Math.min(transCount * 5, 15);
+    reasons.push(`Transition phrases (+${pts}, ${transCount} hit${transCount > 1 ? 's' : ''}): "${examples.join('", "')}"`);
+  }
+
+  const baitCount = countMatches(text, ENGAGEMENT_BAIT);
+  if (baitCount > 0) {
+    const examples = findExamples(text, ENGAGEMENT_BAIT, 5);
+    const pts = Math.min(baitCount * 7, 15);
+    reasons.push(`Engagement bait (+${pts}, ${baitCount} hit${baitCount > 1 ? 's' : ''}): "${examples.join('", "')}"`);
+  }
+
+  const clicheCount = countMatches(text, CLICHE_PATTERNS);
+  if (clicheCount > 0) {
+    const examples = findExamples(text, CLICHE_PATTERNS, 7);
+    const pts = Math.min(clicheCount * 4, 25);
+    reasons.push(`AI vocabulary/clichés (+${pts}, ${clicheCount} hit${clicheCount > 1 ? 's' : ''}): "${examples.join('", "')}"`);
+  }
+
+  const consultantCount = countMatches(text, CONSULTANT_AI_PATTERNS);
+  if (consultantCount > 0) {
+    const examples = findExamples(text, CONSULTANT_AI_PATTERNS, 4);
+    const pts = Math.min(consultantCount * 9, 35);
+    reasons.push(`Consultant style (+${pts}, ${consultantCount} hit${consultantCount > 1 ? 's' : ''}): "${examples.join('", "')}"`);
+  }
+
+  const ghostCount = countMatches(text, GHOSTWRITER_PATTERNS);
+  if (ghostCount > 0) {
+    const examples = findExamples(text, GHOSTWRITER_PATTERNS, 4);
+    const pts = Math.min(ghostCount * 7, 40);
+    reasons.push(`Ghostwriter template (+${pts}, ${ghostCount} hit${ghostCount > 1 ? 's' : ''}): "${examples.join('", "')}"`);
+  }
+
+  const wikiCount = countMatches(text, WIKIPEDIA_AI_PATTERNS);
+  if (wikiCount > 0) {
+    const examples = findExamples(text, WIKIPEDIA_AI_PATTERNS, 5);
+    const pts = Math.min(wikiCount * 5, 30);
+    reasons.push(`AI language patterns (+${pts}, ${wikiCount} hit${wikiCount > 1 ? 's' : ''}): "${examples.join('", "')}"`);
+  }
+
+  // Structural signals
+  const symPts  = Math.round(symmetryScore(text) * 15);
+  const listPts = Math.round(listStructureScore(text) * 15);
+  const emPts   = emDashScore(text);
+  if (symPts > 0 || listPts > 0 || emPts > 0) {
+    const parts: string[] = [];
+    if (symPts > 0) {
+      const sentences = getSentences(text).filter((s) => s.split(/\s+/).length > 3);
+      if (sentences.length > 0) {
+        const lengths = sentences.map((s) => wordCount(s));
+        const mean = Math.round(lengths.reduce((a, b) => a + b, 0) / lengths.length);
+        const min  = Math.min(...lengths);
+        const max  = Math.max(...lengths);
+        parts.push(`uniform sentence rhythm (avg ${mean} words, range ${min}–${max})`);
+      } else {
+        parts.push('uniform sentence rhythm');
+      }
+    }
+    if (listPts > 0) {
+      const arrows  = (text.match(/^\s*→/gm) || []).length;
+      const bullets = (text.match(/^\s*[•\-\*]/gm) || []).length;
+      const nums    = (text.match(/^\s*\d+[\.\)]/gm) || []).length;
+      if (arrows > 0)  parts.push(`${arrows} → arrow bullets`);
+      if (bullets > 0) parts.push(`${bullets} bullet items`);
+      if (nums > 0)    parts.push(`${nums} numbered list items`);
+    }
+    if (emPts > 0) {
+      const count = (text.match(/—/g) || []).length;
+      parts.push(`${count} em dashes (AI over-uses —)`);
+    }
+    reasons.push(`Structure (+${symPts + listPts + emPts}): ${parts.join('; ')}`);
+  }
+
+  if (reasons.length === 0) {
+    reasons.push('No strong AI signals — varied rhythm, specific details, no template structure.');
+  }
+
+  return reasons;
 }

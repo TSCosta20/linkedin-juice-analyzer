@@ -1,7 +1,7 @@
 import { hashText } from '../utils/hash';
 import { analyzePost } from '../scoring';
 import { parseVisiblePosts } from './linkedin-parser';
-import { injectScoreCard, updateCardWithLLM, setCardLoading } from './ui-injector';
+import { injectScoreCard, updateCardWithLLM, setCardLoading, setCardRateLimited } from './ui-injector';
 import { startObserving } from './observer';
 import type { PostScore, TrackedPost } from '../types';
 
@@ -17,24 +17,33 @@ function requestLLMScore(text: string, hash: string): void {
   // Show loading state immediately on the card
   setCardLoading(hash, true);
 
-  chrome.runtime.sendMessage(
-    { type: 'LJA_ANALYZE', text },
-    (llmScore: PostScore | null) => {
-      if (chrome.runtime.lastError) {
-        setCardLoading(hash, false); // no background worker — revert to LOCAL
-        return;
-      }
-      if (!llmScore) {
-        setCardLoading(hash, false); // no key configured — revert to LOCAL
-        return;
-      }
+  try {
+    chrome.runtime.sendMessage(
+      { type: 'LJA_ANALYZE', text },
+      (response: PostScore | { _rateLimited: true } | null) => {
+        if (chrome.runtime.lastError) {
+          setCardLoading(hash, false); // no background worker — revert to LOCAL
+          return;
+        }
+        if (!response) {
+          setCardLoading(hash, false); // no key configured — revert to LOCAL
+          return;
+        }
+        if ('_rateLimited' in response) {
+          setCardRateLimited(hash); // show upgrade prompt
+          return;
+        }
 
-      const t = processedPosts.get(hash);
-      if (t) t.llmScore = llmScore;
+        const t = processedPosts.get(hash);
+        if (t) t.llmScore = response;
 
-      updateCardWithLLM(hash, llmScore);
-    }
-  );
+        updateCardWithLLM(hash, response);
+      }
+    );
+  } catch {
+    // Extension context invalidated (e.g. extension reloaded while tab was open)
+    setCardLoading(hash, false);
+  }
 }
 
 /**

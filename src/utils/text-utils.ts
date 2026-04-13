@@ -40,6 +40,28 @@ export function countNumbers(text: string): number {
 }
 
 /**
+ * Finds all matching snippets across all patterns, returning up to `max` unique examples.
+ * Collects every occurrence (not just one per pattern) to maximise coverage.
+ * Creates a fresh copy of each regex to avoid lastIndex state issues.
+ */
+export function findExamples(text: string, patterns: RegExp[], max = 6): string[] {
+  const results: string[] = [];
+  for (const pattern of patterns) {
+    if (results.length >= max) break;
+    const re = new RegExp(pattern.source, 'gi');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      if (results.length >= max) break;
+      const example = m[0].trim().replace(/\s+/g, ' ').slice(0, 45);
+      if (!results.some((r) => r.toLowerCase() === example.toLowerCase())) {
+        results.push(example);
+      }
+    }
+  }
+  return results;
+}
+
+/**
  * Count unique adjacent word pairs (bigrams).
  * Used to detect repetition: fewer unique bigrams relative to total = more repetitive.
  */

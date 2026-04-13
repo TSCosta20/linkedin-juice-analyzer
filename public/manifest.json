@@ -5,6 +5,8 @@
   "description": "Scores LinkedIn posts on AI, Bullshit, and Juice. Optional LLM upgrade via your own API key.",
   "permissions": ["storage"],
   "host_permissions": [
+    "https://www.tiagoscosta.com/*",
+    "https://tiagoscosta.com/*",
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
     "https://api.deepseek.com/*"
