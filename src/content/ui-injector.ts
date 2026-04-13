@@ -78,7 +78,7 @@ const STYLES = `
   cursor: pointer;
 }
 
-.lja-llm-badge {
+.lja-mode {
   display: inline-block;
   padding: 1px 5px;
   border-radius: 3px;
@@ -86,10 +86,17 @@ const STYLES = `
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.lja-mode-local {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.lja-mode-llm {
   background: #ede9fe;
   color: #5b21b6;
-  margin-left: 2px;
-  vertical-align: middle;
 }
 
 .lja-tooltip {
@@ -299,6 +306,10 @@ function buildCard(score: PostScore, hash: string, isLLM = false): HTMLElement {
   card.className = 'lja-card';
   card.dataset.ljaHash = hash;
 
+  const modeLabel = isLLM
+    ? '<span class="lja-mode lja-mode-llm" title="Scored by AI model">LLM</span>'
+    : '<span class="lja-mode lja-mode-local" title="Scored by local rules (add API key in extension options)">LOCAL</span>';
+
   card.innerHTML = `
     <span class="lja-metric">
       <span class="lja-label">AI</span>
@@ -314,8 +325,8 @@ function buildCard(score: PostScore, hash: string, isLLM = false): HTMLElement {
       <span class="lja-label">Juice</span>
       <span class="lja-score ${levelClass(score.juice, 'juice')}" data-lja-metric="juice" data-lja-score="${score.juice}" title="Click for details">${score.juice}</span>
     </span>
+    ${modeLabel}
     <span class="lja-summary">${score.summary}</span>
-    ${isLLM ? '<span class="lja-llm-badge" title="Scored by AI model">LLM</span>' : ''}
   `.trim();
 
   return card;
@@ -382,12 +393,11 @@ export function updateCardWithLLM(hash: string, llmScore: PostScore): void {
   const summary = card.querySelector('.lja-summary');
   if (summary) summary.textContent = llmScore.summary;
 
-  // Add LLM badge if not already there
-  if (!card.querySelector('.lja-llm-badge')) {
-    const badge = document.createElement('span');
-    badge.className = 'lja-llm-badge';
-    badge.textContent = 'LLM';
-    badge.title = 'Scored by AI model';
-    card.appendChild(badge);
+  // Switch mode badge from LOCAL → LLM
+  const modeBadge = card.querySelector<HTMLElement>('.lja-mode');
+  if (modeBadge) {
+    modeBadge.textContent = 'LLM';
+    modeBadge.className = 'lja-mode lja-mode-llm';
+    modeBadge.title = 'Scored by AI model';
   }
 }
