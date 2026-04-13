@@ -99,6 +99,26 @@ const STYLES = `
   color: #5b21b6;
 }
 
+.lja-mode-loading {
+  background: #f1f5f9;
+  color: #94a3b8;
+  position: relative;
+  overflow: hidden;
+}
+
+.lja-mode-loading::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(99,102,241,0.25), transparent);
+  animation: lja-shimmer 1.2s infinite;
+}
+
+@keyframes lja-shimmer {
+  to { left: 100%; }
+}
+
 .lja-tooltip {
   position: fixed;
   z-index: 99999;
@@ -348,7 +368,11 @@ export function injectScoreCard(
 ): boolean {
   injectStyles();
 
-  if (container.querySelector(`[data-lja-hash="${hash}"]`)) return false;
+  // Global dedup: if a card with this hash exists anywhere in the document,
+  // don't inject another (handles same promoted post in multiple containers).
+  // If the card was removed by a DOM re-render it won't be found here, so
+  // re-injection after scroll still works correctly.
+  if (document.querySelector(`[data-lja-hash="${hash}"]`)) return false;
 
   const displayScore = llmScore ?? score;
   const card = buildCard(displayScore, hash, !!llmScore);
@@ -367,12 +391,36 @@ export function injectScoreCard(
 }
 
 /**
+ * Sets/clears the loading shimmer on a card's mode badge.
+ * Called immediately when an LLM request starts, reverted if it fails.
+ */
+export function setCardLoading(hash: string, loading: boolean): void {
+  const card = document.querySelector<HTMLElement>(`[data-lja-hash="${hash}"]`);
+  if (!card) return;
+  const badge = card.querySelector<HTMLElement>('.lja-mode');
+  if (!badge) return;
+  if (loading) {
+    badge.className = 'lja-mode lja-mode-loading';
+    badge.textContent = 'LLM';
+    badge.title = 'Evaluating with AI model…';
+  } else {
+    badge.className = 'lja-mode lja-mode-local';
+    badge.textContent = 'LOCAL';
+    badge.title = 'Scored by local rules (add API key in extension options)';
+  }
+}
+
+/**
  * Updates an already-injected card with LLM scores in place.
+ * Never overwrites a card that is already LLM-scored.
  * Finds the card by hash across the entire document.
  */
 export function updateCardWithLLM(hash: string, llmScore: PostScore): void {
   const card = document.querySelector<HTMLElement>(`[data-lja-hash="${hash}"]`);
   if (!card) return;
+
+  // Never overwrite an already LLM-scored card
+  if (card.querySelector('.lja-mode-llm')) return;
 
   // Update each score badge
   const badges: Array<{ metric: MetricKind; value: number }> = [

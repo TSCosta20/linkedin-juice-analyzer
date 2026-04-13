@@ -1,7 +1,7 @@
 import { hashText } from '../utils/hash';
 import { analyzePost } from '../scoring';
 import { parseVisiblePosts } from './linkedin-parser';
-import { injectScoreCard, updateCardWithLLM } from './ui-injector';
+import { injectScoreCard, updateCardWithLLM, setCardLoading } from './ui-injector';
 import { startObserving } from './observer';
 import type { PostScore, TrackedPost } from '../types';
 
@@ -10,14 +10,27 @@ const processedPosts = new Map<string, TrackedPost>();
 
 /** Send post text to background for LLM scoring, update card if successful */
 function requestLLMScore(text: string, hash: string): void {
+  // Never re-request if LLM already scored this post
+  const tracked = processedPosts.get(hash);
+  if (tracked?.llmScore) return;
+
+  // Show loading state immediately on the card
+  setCardLoading(hash, true);
+
   chrome.runtime.sendMessage(
     { type: 'LJA_ANALYZE', text },
     (llmScore: PostScore | null) => {
-      if (chrome.runtime.lastError) return; // no background worker or key
-      if (!llmScore) return;
+      if (chrome.runtime.lastError) {
+        setCardLoading(hash, false); // no background worker — revert to LOCAL
+        return;
+      }
+      if (!llmScore) {
+        setCardLoading(hash, false); // no key configured — revert to LOCAL
+        return;
+      }
 
-      const tracked = processedPosts.get(hash);
-      if (tracked) tracked.llmScore = llmScore;
+      const t = processedPosts.get(hash);
+      if (t) t.llmScore = llmScore;
 
       updateCardWithLLM(hash, llmScore);
     }
