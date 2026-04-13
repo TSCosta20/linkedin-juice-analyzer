@@ -73,6 +73,43 @@ const STYLES = `
   font-style: italic;
   margin-top: 0;
 }
+
+.lja-score {
+  cursor: pointer;
+}
+
+.lja-tooltip {
+  position: fixed;
+  z-index: 99999;
+  max-width: 260px;
+  background: #1a1a1a;
+  color: #f0f0f0;
+  border-radius: 8px;
+  padding: 10px 13px;
+  font-size: 12px;
+  line-height: 1.55;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+  pointer-events: none;
+}
+
+.lja-tooltip-title {
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 5px;
+  color: #ccc;
+}
+
+.lja-tooltip-level {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.lja-tooltip-body {
+  color: #bbb;
+  font-size: 11.5px;
+}
 `;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -86,9 +123,151 @@ function injectStyles(): void {
   style.textContent = STYLES;
   document.head.appendChild(style);
   stylesInjected = true;
+  if (!tooltipListenersAttached) {
+    setupTooltipListeners();
+    tooltipListenersAttached = true;
+  }
 }
 
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
+
 type MetricKind = 'ai' | 'bs' | 'juice';
+
+const METRIC_INFO: Record<MetricKind, { title: string; levels: [string, string, string] }> = {
+  ai: {
+    title: 'AI Score — how AI-written this feels',
+    levels: [
+      'Low (0–29): Feels human. Varied sentence rhythm, specific details, no template structure.',
+      'Medium (30–59): Mixed signals. Some polished phrasing or structural patterns typical of AI.',
+      'High (60–100): Strong AI indicators — consultant-style tricolons, "grounded in data" language, smooth transitions, hook phrases, or engagement bait.',
+    ],
+  },
+  bs: {
+    title: 'BS Score — buzzword & fluff density',
+    levels: [
+      'Low (0–29): Concrete language. Little to no filler, buzzwords, or vague inspiration.',
+      'Medium (30–59): Some buzzwords or corporate filler, but still grounded.',
+      'High (60–100): Heavy use of buzzwords ("leverage", "impactful", "synergy"), vague intensifiers, or inspirational padding with no substance.',
+    ],
+  },
+  juice: {
+    title: 'Juice Score — informational payload',
+    levels: [
+      'Low (0–29): Little substance. No data, no evidence, high filler ratio.',
+      'Medium (30–59): Some useful content — a few numbers, named concepts, or evidence markers.',
+      'High (60–100): Information-dense. Numbers, percentages, technical terms, before/after comparisons, or named entities.',
+    ],
+  },
+};
+
+let activeTooltip: HTMLElement | null = null;
+
+function getLevelIndex(score: number, metric: MetricKind): 0 | 1 | 2 {
+  if (metric === 'juice') {
+    if (score >= 60) return 2;
+    if (score >= 30) return 1;
+    return 0;
+  }
+  if (score >= 60) return 2;
+  if (score >= 30) return 1;
+  return 0;
+}
+
+function getLevelLabel(score: number, metric: MetricKind): string {
+  if (metric === 'juice') {
+    if (score >= 60) return 'High — information-dense';
+    if (score >= 30) return 'Medium — some useful content';
+    return 'Low — little substance';
+  }
+  if (score >= 60) return metric === 'ai' ? 'High — strong AI indicators' : 'High — heavy fluff';
+  if (score >= 30) return 'Medium — mixed signals';
+  return metric === 'ai' ? 'Low — feels human' : 'Low — clean language';
+}
+
+function showTooltip(anchor: HTMLElement, metric: MetricKind, score: number): void {
+  removeTooltip();
+
+  const info = METRIC_INFO[metric];
+  const levelIdx = getLevelIndex(score, metric);
+  const levelLabel = getLevelLabel(score, metric);
+  const levelText = info.levels[levelIdx];
+
+  const tip = document.createElement('div');
+  tip.className = 'lja-tooltip';
+  tip.innerHTML = `
+    <div class="lja-tooltip-title">${info.title}</div>
+    <div class="lja-tooltip-level">${levelLabel}</div>
+    <div class="lja-tooltip-body">${levelText}</div>
+  `.trim();
+
+  document.body.appendChild(tip);
+  activeTooltip = tip;
+
+  // Position below the anchor, clamped to viewport
+  const rect = anchor.getBoundingClientRect();
+  const tipWidth = 260;
+  let left = rect.left;
+  let top = rect.bottom + 6;
+
+  if (left + tipWidth > window.innerWidth - 10) {
+    left = window.innerWidth - tipWidth - 10;
+  }
+  if (top + 120 > window.innerHeight) {
+    top = rect.top - 120 - 6;
+  }
+
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+
+function removeTooltip(): void {
+  activeTooltip?.remove();
+  activeTooltip = null;
+}
+
+function setupTooltipListeners(): void {
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    // If click is on a score badge — show tooltip
+    if (target.classList.contains('lja-score')) {
+      const card = target.closest<HTMLElement>('.lja-card');
+      if (!card) return;
+      const metric = target.dataset.ljaMetric as MetricKind | undefined;
+      const score = parseInt(target.dataset.ljaScore ?? '0', 10);
+      if (!metric) return;
+      // Toggle: if same badge already open, close it
+      if (activeTooltip && target.dataset.ljaOpen === '1') {
+        removeTooltip();
+        target.dataset.ljaOpen = '0';
+        return;
+      }
+      // Close any previously open badge
+      document.querySelectorAll<HTMLElement>('[data-lja-open="1"]').forEach((el) => {
+        el.dataset.ljaOpen = '0';
+      });
+      target.dataset.ljaOpen = '1';
+      showTooltip(target, metric, score);
+      e.stopPropagation();
+      return;
+    }
+    // Click anywhere else — close tooltip
+    removeTooltip();
+    document.querySelectorAll<HTMLElement>('[data-lja-open="1"]').forEach((el) => {
+      el.dataset.ljaOpen = '0';
+    });
+  }, true);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      removeTooltip();
+      document.querySelectorAll<HTMLElement>('[data-lja-open="1"]').forEach((el) => {
+        el.dataset.ljaOpen = '0';
+      });
+    }
+  });
+}
+
+let tooltipListenersAttached = false;
 
 function levelClass(score: number, metric: MetricKind): string {
   if (metric === 'juice') {
@@ -109,17 +288,17 @@ function buildCard(score: PostScore, hash: string): HTMLElement {
   card.innerHTML = `
     <span class="lja-metric">
       <span class="lja-label">AI</span>
-      <span class="lja-score ${levelClass(score.ai, 'ai')}">${score.ai}</span>
+      <span class="lja-score ${levelClass(score.ai, 'ai')}" data-lja-metric="ai" data-lja-score="${score.ai}" title="Click for details">${score.ai}</span>
     </span>
     <span class="lja-sep">·</span>
     <span class="lja-metric">
       <span class="lja-label">BS</span>
-      <span class="lja-score ${levelClass(score.bullshit, 'bs')}">${score.bullshit}</span>
+      <span class="lja-score ${levelClass(score.bullshit, 'bs')}" data-lja-metric="bs" data-lja-score="${score.bullshit}" title="Click for details">${score.bullshit}</span>
     </span>
     <span class="lja-sep">·</span>
     <span class="lja-metric">
       <span class="lja-label">Juice</span>
-      <span class="lja-score ${levelClass(score.juice, 'juice')}">${score.juice}</span>
+      <span class="lja-score ${levelClass(score.juice, 'juice')}" data-lja-metric="juice" data-lja-score="${score.juice}" title="Click for details">${score.juice}</span>
     </span>
     <span class="lja-summary">${score.summary}</span>
   `.trim();
