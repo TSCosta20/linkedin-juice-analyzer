@@ -27,11 +27,12 @@ function removeSettings(): Promise<void> {
 
 // ─── UI ──────────────────────────────────────────────────────────────────────
 
-const providerSelect = document.getElementById('provider') as HTMLSelectElement;
-const apiKeyInput    = document.getElementById('apiKey')   as HTMLInputElement;
-const saveBtn        = document.getElementById('saveBtn')  as HTMLButtonElement;
-const clearBtn       = document.getElementById('clearBtn') as HTMLButtonElement;
-const status         = document.getElementById('status')   as HTMLElement;
+const providerSelect     = document.getElementById('provider')       as HTMLSelectElement;
+const apiKeyInput        = document.getElementById('apiKey')         as HTMLInputElement;
+const saveBtn            = document.getElementById('saveBtn')        as HTMLButtonElement;
+const clearBtn           = document.getElementById('clearBtn')       as HTMLButtonElement;
+const status             = document.getElementById('status')         as HTMLElement;
+const filterPromotedToggle = document.getElementById('filterPromoted') as HTMLInputElement;
 
 function showStatus(msg: string, ok: boolean): void {
   status.textContent = msg;
@@ -39,11 +40,20 @@ function showStatus(msg: string, ok: boolean): void {
   setTimeout(() => { status.textContent = ''; }, 3000);
 }
 
+// Load all settings on open
 loadSettings().then((s) => {
   if (s) {
     providerSelect.value = s.provider;
     apiKeyInput.value    = s.apiKey;
   }
+});
+
+chrome.storage.sync.get('lja_filterPromoted', (result) => {
+  filterPromotedToggle.checked = result.lja_filterPromoted !== false; // default ON
+});
+
+filterPromotedToggle.addEventListener('change', () => {
+  chrome.storage.sync.set({ lja_filterPromoted: filterPromotedToggle.checked });
 });
 
 saveBtn.addEventListener('click', async () => {

@@ -8,6 +8,19 @@ import type { PostScore, TrackedPost } from '../types';
 /** In-memory deduplication cache: hash → TrackedPost */
 const processedPosts = new Map<string, TrackedPost>();
 
+/** Filter preference — loaded once at init, defaults to true */
+let filterPromoted = true;
+
+function loadFilterPreference(): Promise<void> {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get('lja_filterPromoted', (result) => {
+      // Default ON — only turn off if explicitly set to false
+      filterPromoted = result.lja_filterPromoted !== false;
+      resolve();
+    });
+  });
+}
+
 /** Send post text to background for LLM scoring, update card if successful */
 function requestLLMScore(text: string, hash: string): void {
   // Never re-request if LLM already scored this post
@@ -51,7 +64,7 @@ function requestLLMScore(text: string, hash: string): void {
  * Already-cached posts still attempt re-injection (handles DOM re-renders after scroll).
  */
 function processVisiblePosts(): void {
-  const posts = parseVisiblePosts();
+  const posts = parseVisiblePosts(filterPromoted);
 
   for (const { container, textContent, textElement } of posts) {
     const hash = hashText(textContent);
@@ -69,7 +82,8 @@ function processVisiblePosts(): void {
   }
 }
 
-function init(): void {
+async function init(): Promise<void> {
+  await loadFilterPreference();
   processVisiblePosts();
   startObserving(processVisiblePosts);
 }

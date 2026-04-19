@@ -16,10 +16,31 @@ export interface ParsedPost {
 }
 
 /**
+ * Detects whether a post container is a LinkedIn promoted/sponsored post.
+ * Checks for "Promoted" label in the post header (above the text body).
+ */
+export function isPromotedPost(container: HTMLElement): boolean {
+  // LinkedIn renders a "Promoted" label in the actor/header section.
+  // We search only within the first ~25% of the container's children
+  // to avoid false-positives from post body text.
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let node: Text | null;
+  while ((node = walker.nextNode() as Text | null)) {
+    const val = node.nodeValue?.trim();
+    if (val === 'Promoted' || val === 'Sponsored') {
+      // Make sure this text node isn't inside the expandable post body
+      const inBody = (node.parentElement as HTMLElement)?.closest('[data-testid="expandable-text-box"]');
+      if (!inBody) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Returns all visible feed posts by finding every expandable text box
  * and walking up to its post container.
  */
-export function parseVisiblePosts(): ParsedPost[] {
+export function parseVisiblePosts(filterPromoted = true): ParsedPost[] {
   const textEls = document.querySelectorAll<HTMLElement>(
     '[data-testid="expandable-text-box"]'
   );
@@ -34,6 +55,9 @@ export function parseVisiblePosts(): ParsedPost[] {
     // Skip if we already processed this container (e.g. reshared post with two text boxes)
     if (seenContainers.has(container)) continue;
     seenContainers.add(container);
+
+    // Skip promoted/sponsored posts if filter is enabled
+    if (filterPromoted && isPromotedPost(container)) continue;
 
     // Use innerText to get clean visible text (strips hidden spans, aria labels, etc.)
     const text = (textEl.innerText ?? textEl.textContent ?? '').trim();

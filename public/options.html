@@ -63,6 +63,53 @@
 
     hr { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
 
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .toggle-row label {
+      margin-bottom: 0;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #111;
+    }
+
+    .toggle {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: #d1d5db;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      left: 3px; bottom: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle input:checked + .toggle-slider { background: #6366f1; }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
+
     .info { font-size: 11.5px; color: #777; line-height: 1.6; }
     .info strong { color: #444; }
   </style>
@@ -70,6 +117,17 @@
 <body>
   <h1>LinkedIn Juice Analyzer</h1>
   <p class="subtitle">Optional: connect an LLM for deeper analysis</p>
+
+  <div class="toggle-row">
+    <label for="filterPromoted">Hide promoted posts</label>
+    <label class="toggle">
+      <input type="checkbox" id="filterPromoted" checked />
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+  <p class="hint" style="margin-bottom:20px">Sponsored/promoted posts are skipped and not scored.</p>
+
+  <hr />
 
   <label for="provider">Provider</label>
   <select id="provider">
