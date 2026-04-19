@@ -1,4 +1,4 @@
-import type { PostScore } from '../types';
+import type { PostScore, ActionSuggestion } from '../types';
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
@@ -227,7 +227,189 @@ const STYLES = `
   border-radius: 3px;
   line-height: 1.5;
 }
+
+/* ─── Filter bar ─────────────────────────────────────────────────────────── */
+
+.lja-filter-bar {
+  position: fixed;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 554px;
+  max-width: calc(100vw - 32px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  color: #444;
+  user-select: none;
+  box-sizing: border-box;
+}
+
+.lja-filter-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #999;
+  margin-right: 2px;
+}
+
+.lja-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  line-height: 1.4;
+}
+
+.lja-filter-chip:hover {
+  border-color: #0d3d4f;
+  color: #0d3d4f;
+}
+
+.lja-filter-chip.active {
+  background: #0d3d4f;
+  border-color: #0d3d4f;
+  color: #fff;
+}
+
+.lja-filter-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.lja-filter-spacer { flex: 1; }
+
+/* ─── Action button & suggestion panel ──────────────────────────────────── */
+
+.lja-act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  line-height: 1.6;
+}
+
+.lja-act-btn:hover {
+  background: #0d3d4f;
+  border-color: #0d3d4f;
+  color: #fff;
+}
+
+.lja-act-btn.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.lja-suggestion {
+  position: fixed;
+  z-index: 99999;
+  width: 320px;
+  background: #1a1a1a;
+  color: #f0f0f0;
+  border-radius: 10px;
+  padding: 13px 15px;
+  font-size: 12px;
+  line-height: 1.55;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  box-sizing: border-box;
+}
+
+.lja-suggestion-action {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.lja-suggestion-action.dm      { background: #7c3aed; color: #fff; }
+.lja-suggestion-action.like    { background: #0284c7; color: #fff; }
+.lja-suggestion-action.comment { background: #059669; color: #fff; }
+.lja-suggestion-action.skip    { background: #6b7280; color: #fff; }
+
+.lja-suggestion-reason {
+  font-size: 11.5px;
+  color: #ccc;
+  margin-bottom: 8px;
+}
+
+.lja-suggestion-text {
+  background: rgba(255,255,255,0.07);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  color: #e8e8e8;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 8px;
+}
+
+.lja-suggestion-copy {
+  display: block;
+  width: 100%;
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: transparent;
+  color: #aaa;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  text-align: center;
+}
+
+.lja-suggestion-copy:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+.lja-suggestion-warn {
+  font-size: 11px;
+  color: #f59e0b;
+  line-height: 1.5;
+}
+
+.lja-suggestion-warn a {
+  color: #fbbf24;
+  text-decoration: underline;
+  cursor: pointer;
+}
 `;
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -569,6 +751,158 @@ export function updateCardWithLLM(hash: string, llmScore: PostScore): void {
     modeBadge.className = 'lja-mode lja-mode-llm';
     modeBadge.title = 'Scored by AI model';
   }
+}
+
+// ─── Action suggestion panel ──────────────────────────────────────────────────
+
+let activeSuggestion: HTMLElement | null = null;
+
+function removeSuggestion(): void {
+  activeSuggestion?.remove();
+  activeSuggestion = null;
+}
+
+export function showSuggestionLoading(hash: string): void {
+  const btn = document.querySelector<HTMLElement>(`[data-lja-act="${hash}"]`);
+  if (btn) { btn.textContent = '…'; btn.classList.add('loading'); }
+}
+
+export function showSuggestionError(hash: string, message: string, onSettingsClick?: () => void): void {
+  const btn = document.querySelector<HTMLElement>(`[data-lja-act="${hash}"]`);
+  if (btn) { btn.textContent = '✦ Act'; btn.classList.remove('loading'); }
+
+  removeSuggestion();
+  const panel = document.createElement('div');
+  panel.className = 'lja-suggestion';
+  panel.innerHTML = `<div class="lja-suggestion-warn">${escapeHtml(message)}${
+    onSettingsClick ? ' <a class="lja-suggestion-settings-link">Open settings →</a>' : ''
+  }</div>`;
+
+  if (onSettingsClick) {
+    panel.querySelector('.lja-suggestion-settings-link')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onSettingsClick();
+      removeSuggestion();
+    });
+  }
+
+  positionPanel(panel, hash);
+}
+
+export function showSuggestionResult(hash: string, suggestion: ActionSuggestion): void {
+  const btn = document.querySelector<HTMLElement>(`[data-lja-act="${hash}"]`);
+  if (btn) { btn.textContent = '✦ Act'; btn.classList.remove('loading'); }
+
+  removeSuggestion();
+  const panel = document.createElement('div');
+  panel.className = 'lja-suggestion';
+
+  const hasText = suggestion.text?.trim().length > 0;
+  panel.innerHTML = `
+    <span class="lja-suggestion-action ${suggestion.action}">${suggestion.action.toUpperCase()}</span>
+    <div class="lja-suggestion-reason">${escapeHtml(suggestion.reason)}</div>
+    ${hasText ? `
+      <div class="lja-suggestion-text">${escapeHtml(suggestion.text)}</div>
+      <button class="lja-suggestion-copy">Copy text</button>
+    ` : ''}
+  `.trim();
+
+  if (hasText) {
+    panel.querySelector('.lja-suggestion-copy')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      navigator.clipboard.writeText(suggestion.text).then(() => {
+        const btn = panel.querySelector<HTMLElement>('.lja-suggestion-copy');
+        if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy text'; }, 1500); }
+      });
+    });
+  }
+
+  positionPanel(panel, hash);
+}
+
+function positionPanel(panel: HTMLElement, hash: string): void {
+  document.body.appendChild(panel);
+  activeSuggestion = panel;
+
+  const btn = document.querySelector<HTMLElement>(`[data-lja-act="${hash}"]`);
+  if (!btn) return;
+
+  const rect = btn.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.bottom + 6;
+
+  if (left + 320 > window.innerWidth - 10) left = window.innerWidth - 320 - 10;
+  if (top + 200 > window.innerHeight) top = rect.top - 200 - 6;
+
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+
+  // Close on outside click
+  const close = (e: MouseEvent) => {
+    if (!panel.contains(e.target as Node)) {
+      removeSuggestion();
+      document.removeEventListener('click', close, true);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', close, true), 0);
+}
+
+/**
+ * Injects a sticky filter bar at the top of the LinkedIn feed.
+ * Returns a cleanup function that removes the bar.
+ * @param initialFilterPromoted - whether the "hide promoted" filter starts active
+ * @param onChange - called with the new value whenever the user toggles a filter
+ */
+export function injectFilterBar(
+  initialFilterPromoted: boolean,
+  onChange: (filterPromoted: boolean) => void
+): () => void {
+  injectStyles();
+
+  // Remove any existing bar first
+  document.getElementById('lja-filter-bar')?.remove();
+
+  const bar = document.createElement('div');
+  bar.className = 'lja-filter-bar';
+  bar.id = 'lja-filter-bar';
+
+  let filterPromoted = initialFilterPromoted;
+
+  const promotedChip = document.createElement('button');
+  promotedChip.className = `lja-filter-chip${filterPromoted ? ' active' : ''}`;
+  promotedChip.innerHTML = '<span class="lja-filter-chip-dot"></span> Hide promoted';
+  promotedChip.title = 'Toggle visibility of sponsored/promoted posts';
+  promotedChip.addEventListener('click', () => {
+    filterPromoted = !filterPromoted;
+    promotedChip.className = `lja-filter-chip${filterPromoted ? ' active' : ''}`;
+    chrome.storage.sync.set({ lja_filterPromoted: filterPromoted });
+    onChange(filterPromoted);
+  });
+
+  const filterLabel = document.createElement('span');
+  filterLabel.className = 'lja-filter-label';
+  filterLabel.textContent = 'Filters';
+
+  const spacer = document.createElement('span');
+  spacer.className = 'lja-filter-spacer';
+
+  const brand = document.createElement('a');
+  brand.className = 'lja-brand';
+  brand.href = 'https://waldyn.eu';
+  brand.target = '_blank';
+  brand.rel = 'noopener noreferrer';
+  brand.title = 'Powered by Waldyn';
+  brand.innerHTML = '<span class="lja-brand-label">by</span><span class="lja-brand-badge">Waldyn</span>';
+
+  bar.appendChild(filterLabel);
+  bar.appendChild(promotedChip);
+  bar.appendChild(spacer);
+  bar.appendChild(brand);
+
+  // Attach to body so LinkedIn's feed re-renders can't remove it
+  document.body.appendChild(bar);
+
+  return () => bar.remove();
 }
 
 /**

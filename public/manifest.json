@@ -4,6 +4,13 @@
   "version": "1.1.0",
   "description": "Scores LinkedIn posts on AI, Bullshit, and Juice. Optional LLM upgrade via your own API key.",
   "permissions": ["storage"],
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
   "host_permissions": [
     "https://www.tiagoscosta.com/*",
     "https://tiagoscosta.com/*",

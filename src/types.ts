@@ -17,5 +17,27 @@ export interface PostScore {
 export interface TrackedPost {
   hash: string;
   score: PostScore;
-  llmScore?: PostScore; // upgraded score from LLM, if available
+  llmScore?: PostScore;
+  postText: string;
+  authorName: string;
+  authorHeadline: string;
+}
+
+/** Author info parsed from the post DOM */
+export interface PostAuthor {
+  name: string;
+  headline: string;
+}
+
+/** User profile stored in options */
+export interface UserProfile {
+  role: string;   // e.g. "Software engineer looking for a new job"
+  goals: string;  // e.g. "Connect with CTOs and engineering leaders"
+}
+
+/** Action suggestion returned by LLM */
+export interface ActionSuggestion {
+  action: 'dm' | 'like' | 'comment' | 'skip';
+  reason: string;  // one sentence explaining why
+  text: string;    // exact DM or comment text (empty for like/skip)
 }

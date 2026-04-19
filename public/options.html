@@ -28,7 +28,7 @@
       margin-bottom: 6px;
     }
 
-    select, input[type="password"] {
+    select, input[type="text"], input[type="password"] {
       width: 100%;
       padding: 8px 10px;
       border: 1px solid #d1d5db;
@@ -40,7 +40,7 @@
       outline: none;
     }
 
-    select:focus, input[type="password"]:focus { border-color: #6366f1; }
+    select:focus, input[type="text"]:focus, input[type="password"]:focus { border-color: #6366f1; }
 
     .hint { font-size: 11px; color: #888; margin-top: -12px; margin-bottom: 16px; }
 
@@ -118,6 +118,21 @@
   <h1>LinkedIn Juice Analyzer</h1>
   <p class="subtitle">Optional: connect an LLM for deeper analysis</p>
 
+  <label for="userRole">Who are you</label>
+  <input type="text" id="userRole" placeholder="e.g. Software engineer looking for a new job" autocomplete="off" />
+  <p class="hint">Used by the ✦ Act button to personalise action suggestions.</p>
+
+  <label for="userGoals">Your goals on LinkedIn</label>
+  <input type="text" id="userGoals" placeholder="e.g. Connect with CTOs and engineering leaders" autocomplete="off" />
+  <p class="hint">What you're trying to achieve — the more specific, the better suggestions.</p>
+
+  <div class="buttons" style="margin-bottom:24px">
+    <button id="saveProfileBtn">Save profile</button>
+  </div>
+  <div id="profileStatus" style="font-size:12px;min-height:18px;margin-top:-18px;margin-bottom:16px"></div>
+
+  <hr />
+
   <div class="toggle-row">
     <label for="filterPromoted">Hide promoted posts</label>
     <label class="toggle">
@@ -156,6 +171,6 @@
     Cheapest options: <strong>DeepSeek</strong> or <strong>gpt-4o-mini</strong>.
   </p>
 
-  <script src="options.js"></script>
+  <script type="module" src="options.js"></script>
 </body>
 </html>

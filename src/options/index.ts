@@ -27,18 +27,38 @@ function removeSettings(): Promise<void> {
 
 // ─── UI ──────────────────────────────────────────────────────────────────────
 
-const providerSelect     = document.getElementById('provider')       as HTMLSelectElement;
-const apiKeyInput        = document.getElementById('apiKey')         as HTMLInputElement;
-const saveBtn            = document.getElementById('saveBtn')        as HTMLButtonElement;
-const clearBtn           = document.getElementById('clearBtn')       as HTMLButtonElement;
-const status             = document.getElementById('status')         as HTMLElement;
+const providerSelect       = document.getElementById('provider')       as HTMLSelectElement;
+const apiKeyInput          = document.getElementById('apiKey')         as HTMLInputElement;
+const saveBtn              = document.getElementById('saveBtn')        as HTMLButtonElement;
+const clearBtn             = document.getElementById('clearBtn')       as HTMLButtonElement;
+const status               = document.getElementById('status')         as HTMLElement;
 const filterPromotedToggle = document.getElementById('filterPromoted') as HTMLInputElement;
+const userRoleInput        = document.getElementById('userRole')       as HTMLInputElement;
+const userGoalsInput       = document.getElementById('userGoals')      as HTMLInputElement;
+const saveProfileBtn       = document.getElementById('saveProfileBtn') as HTMLButtonElement;
+const profileStatus        = document.getElementById('profileStatus')  as HTMLElement;
 
 function showStatus(msg: string, ok: boolean): void {
   status.textContent = msg;
   status.style.color = ok ? '#22c55e' : '#ef4444';
   setTimeout(() => { status.textContent = ''; }, 3000);
 }
+
+// Load profile
+chrome.storage.sync.get(['lja_role', 'lja_goals'], (result) => {
+  if (result.lja_role)  userRoleInput.value  = result.lja_role as string;
+  if (result.lja_goals) userGoalsInput.value = result.lja_goals as string;
+});
+
+saveProfileBtn.addEventListener('click', () => {
+  const role  = userRoleInput.value.trim();
+  const goals = userGoalsInput.value.trim();
+  chrome.storage.sync.set({ lja_role: role, lja_goals: goals }, () => {
+    profileStatus.textContent = 'Profile saved!';
+    profileStatus.style.color = '#22c55e';
+    setTimeout(() => { profileStatus.textContent = ''; }, 3000);
+  });
+});
 
 // Load all settings on open
 loadSettings().then((s) => {
